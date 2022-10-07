@@ -1,0 +1,211 @@
+{% extends "template.html" %}
+{% block main %}
+
+<p>Whether accessing querystring parameters, form data or headers, a number of convenient
+    methods exist to get the values, or return defaults, or convert to numbers or some other types.</p>
+
+<p>Contents:</p>
+
+<ul>
+    <li><a href="#querystring">Query Strings</a></li>
+    <li><a href="#form">Form Data</a></li>
+    <li><a href="#uploads">Uploads</a></li>
+    <li><a href="#headers">Headers</a></li>
+    <li><a href="#cookies">Cookies</a></li>
+    <li><a href="#matrix">Matrix parameters</a></li>
+    <li><a href="#requests">Request bodies</a></li>
+    <li><a href="#responses">Responses</a></li>
+    <li><a href="#response-bodies">Response Bodies</a>
+        <ul>
+            <li><a href="#response-write">Writing a single string as a full response</a></li>
+            <li><a href="#response-send-chunk">Sending multiple strings, chunk by chunk</a></li>
+            <li><a href="#response-print-writer">Writing text to a PrintWriter</a></li>
+            <li><a href="#response-output-stream">Writing binary data to an output stream</a></li>
+            <li><a href="#response-async-write">Writing byte-buffers asynchronously</a></li>
+        </ul>
+    </li>
+</ul>
+
+<h2 id="querystring">Query Strings</h2>
+
+<p>These can all be accessed from the Request object by calling <code>request.query()</code>
+    which returns a {{ javadoc("io.muserver.RequestParameters") | raw }} object.</p>
+
+{{ source("QueryStringExampleHandler.java") | raw }}
+
+<p><strong>Try it:</strong> <a href="/model/query?something=hello&amp;something=something%20else&amp;another=more">Run
+    the above code in your browser.</a></p>
+
+<h2 id="form">Form data</h2>
+
+<p>Calling <code>request.form()</code> returns a {{ javadoc("io.muserver.RequestParameters") | raw }} object
+    so all values are the same as for query strings:</p>
+
+{{ source("FormDataExampleHandler.java") | raw }}
+
+<p><strong>Try it:</strong> post some data to the server:</p>
+<form action="/model/forms" method="post">
+    <label>something <input type="text" name="something"></label>
+    <label>numberValue <input type="number" name="numberValue"></label>
+    <label><input type="checkbox" name="checkboxValue"> checkboxValue</label>
+    <input type="submit" value="Submit">
+</form>
+
+<h3 id="uploads">Uploads</h3>
+
+<p>Accessing the fields in multi-part form data is as above. To access uploaded files,
+    see <a href="/uploads">the Uploads documentation</a>.</p>
+
+<h2 id="headers">Headers</h2>
+
+<p>Request headers share most of the same getters as the query string and form data, however more options are
+    available, including the ability to parse certain complex headers. See the
+    {{ javadoc("io.muserver.Headers") | raw }} javadoc for more details.</p>
+
+{{ source("HeaderExampleHandler.java") | raw }}
+
+<p><strong>Try it:</strong> <a href="/model/headers">Run
+    the above code in your browser.</a></p>
+
+<p>Note that the {{ javadoc("io.muserver.HeaderNames") | raw }} and {{ javadoc("io.muserver.HeaderValues") | raw }}
+    classes contain a number of useful constants.</p>
+
+<h2 id="cookies">Cookies</h2>
+
+<p>Use the {{ javadoc("io.muserver.CookieBuilder") | raw }} class to create a new cookie and send
+    it to the client with <code>response.addCookie(Cookie)</code>.</p>
+
+<p>Cookies can be read with <code>request.cookie(String name)</code> which returns an
+    <code>Optional&lt;String&gt;</code> with the cookie value as the value if present:</p>
+
+{{ source("CookieExampleHandler.java") | raw }}
+
+<p><strong>Try it:</strong> <a href="/model/cookie?action=create">Create a cookie</a> and
+    <a href="/model/cookie?action=view">view the cookie</a> and then <a href="/model/cookie?action=delete">delete the
+        cookie</a>.</p>
+
+<p>When creating cookies, it is recommended to set <code>SameSite</code> to <code>Strict</code>, and enable
+    <code>Secure</code> and <code>HTTPOnly</code> to prevent a number of common
+    attacks. The CookieBuilder's <code>newSecureCookie()</code> method creates a build with these values set.</p>
+
+<p>It's important to note that cookie names and values can only use a limited subset of ASCII characters, so
+    you cannot send arbitrary data (such as JSON) as a cookie value without encoding it first. One option to
+    allow arbitrary data is to URL Encode the value. The <code>withUrlEncodedValue</code> method can be used
+    in place of the <code>withValue</code> method to achieve this (note the consumer
+    of the cookie needs to URL decode the value when accessing it.)</p>
+
+<p>If a max age is not set, then the cookie will be a "session" cookie which means browsers may keep
+    the cookie until the user closes their browser (or not, depending on the browser). To create a persistent
+    cookie, use the <code>withMaxAgeInSeconds</code> with a positive number.</p>
+
+<h2 id="matrix">Matrix Parameters</h2>
+
+<p>URL paths can have attributes associated with each segment of the path. For example, in the following URL, there
+are 3 path segments (<code>search</code>, <code>hotels</code>, and <code>suites</code>). The <code>hotels</code> segment
+has 2 attributes: <code>rating</code> which has two values (<code>4</code> and <code>5</code>) and <code>hasPool</code>,
+whereas the <code>suites</code> segment just has a single attribute.</p>
+
+<p><code>/search/hotels;rating=5;rating=4;hasPool=true/suites;beds=2</code></p>
+
+<p>The following example shows how to locate a segment and extract the parameters for that segment:</p>
+
+{{ source("MatrixParameterExampleHandler.java") | raw }}
+
+<h2 id="requests">Request bodies</h2>
+
+<p>While <a href="#form">form data</a> and <a href="/uploads">uploads</a> can be accessed via the request object, there
+    are other ways to
+    read request bodies.</p>
+
+<p>Calling <code>request.readBodyAsString()</code> returns the request body as a string. This is
+    convenient if you are expecting a small text upload, however for binary or large uploads it is better to
+    stream the data.</p>
+
+<p>The <code>inputStream()</code> method on the request object is an <code>Optional</code> value which
+    has a readable input stream if the client sent a body:</p>
+
+<pre><code class="language-java">Optional&lt;InputStream&gt; inputStreamOption = request.inputStream();
+if (inputStreamOption.isPresent()) {
+    InputStream inputStream = inputStreamOption.get();
+    // read the stream
+}</code></pre>
+
+<p>Request bodies can also be <a href="/async#request-body">read asynchronously</a>.</p>
+
+<p>The content type of the request data can be found by calling <code>request.headers().contentType()</code>
+    which returns a <a href="https://docs.oracle.com/javaee/7/api/javax/ws/rs/core/MediaType.html">MediaType</a> object
+    which has <code>getType()</code> and <code>getSubtype()</code> methods.</p>
+
+<h2 id="responses">Responses</h2>
+
+<p>The {{ javadoc("io.muserver.MuResponse") | raw }} javadocs have detailed information on handling responses.
+    Generally speaking though, a status, content-type, and headers can be set, followed by the response body.</p>
+
+<p>The status can be set with <code>response.status(int)</code> which defaults to <code>200</code> if not set.
+    The content type can be set with <code>response.contentType(String)</code> which defaults to <code>text/plain</code>
+    if text is sent; otherwise <code>application/octet-stream</code> is used. Note that the
+    {{ javadoc("io.muserver.ContentTypes") | raw }} class defines constants for many content types.</p>
+
+<p>See the sections above for setting <a href="#headers">headers</a> and <a href="#cookies">cookies</a>.</p>
+
+<h2 id="response-bodies">Response bodies</h2>
+
+<p>There are several options for sending response bodies:</p>
+<ul>
+    <li>Writing a single string as a full response</li>
+    <li>Sending multiple strings, chunk by chunk</li>
+    <li>Writing text to a PrintWriter</li>
+    <li>Writing binary data to an output stream</li>
+    <li>Writing byte-buffers asynchronously</li>
+</ul>
+
+<h3 id="response-write">Writing a single string as a full response</h3>
+
+<p>This is a good option if you have some text to send and you don't require streaming:</p>
+
+<p><code class="language-java">response.write("Hello, world");</code></p>
+
+<p>This will send a fixed-length response to the client. Note you can only call <code>write</code> once per
+    response, so if you find you want to call it multiple times, use one of the following options.</p>
+
+<h3 id="response-send-chunk">Sending multiple strings, chunk by chunk</h3>
+
+<p>The <code>sendChunk(String)</code> method will immediately send the text to the client and can be called
+    multiple times:</p>
+
+{{ source("SendChunkExample.java") | raw }}
+
+<h3 id="response-print-writer">Writing text to a PrintWriter</h3>
+
+<p>The <code>response.writer()</code> method returns a buffered UTF-8 <code>java.io.PrintWriter</code>.
+    You can optionally call the <code>flush()</code> method on the writer to immediately send the contents.</p>
+
+{{ source("ResponseTextWriterExample.java") | raw }}
+
+<h3 id="response-output-stream">Writing binary data to an output stream</h3>
+
+<p>To sent raw bytes to the client, <code>response.outputStream()</code> can be used which is a buffered
+    <code>OutputStream</code>. Similar to the <code>PrintStream</code>, calling <code>flush()</code> is optional and
+    will immediately send the buffered contents to the client.</p>
+
+<p>In this example, an <code>InputStream</code> is found which is a PNG on the classpath, and as the data from the image
+    is read it is written to the response output stream:</p>
+
+{{ source("ResponseOutputStreamExample.java") | raw }}
+
+<p>The <code>PrintStream</code> and <code>OutputStream</code> options are often useful if needing to integrate
+    with other libraries that expect these types of objects.</p>
+
+<p><strong>Note:</strong> you should generally use a built-in <a href="/resources">static resource handler</a>
+    if you want to serve files from the filesystem or the classpath.</p>
+
+<h3 id="response-async-write">Writing byte-buffers asynchronously</h3>
+
+<p>When a request is being handled asynchronously, an {{ javadoc("io.muserver.AsyncHandle") | raw }}
+    is returned which has non-blocking methods for writing <code>ByteBuffer</code> objects. This can be a good choice
+    when responses may be long running as it will reduce the number of threads use, which is what the built-in
+    static file handler does.</p>
+
+<p>See the <a href="/async">async handling</a> documentation for more information.</p>
+
+{% endblock %}

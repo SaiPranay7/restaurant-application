@@ -1,0 +1,202 @@
+{% extends "template.html" %}
+{% block main %}
+
+<p>JAX-RS is a standard way to declaratively define REST services in Java. Mu Server has a built-in
+    sub-set of JAX-RS 2.1 which allows a simple way to declare and expose REST APIs.</p>
+
+<h2>A basic example</h2>
+
+<p>In this example, there is an in-memory data structure holding user information. There is a single
+    URL defined that allows a lookup for a user based on their ID and returns the data as JSON:</p>
+
+{{ source("JaxRSExample.java") | raw }}
+
+<p>You can try out some of the URLs here:</p>
+<ul>
+    <li><a href="/jaxrsexample/users/1">/jaxrsexample/users/1</a></li>
+    <li><a href="/jaxrsexample/users/2">/jaxrsexample/users/2</a></li>
+    <li><a href="/jaxrsexample/users/3">/jaxrsexample/users/3</a></li>
+    <li><a href="/jaxrsexample/users/4">/jaxrsexample/users/4</a> (returns a 404)</li>
+</ul>
+
+<p>Note that the <code>RestHandlerBuilder.restHandler(resources)</code> method takes an array
+    of JAX-RS objects. It is recommended that if you have multiple resources to expose that you
+    create a single RestHandler with multiple resources attached.</p>
+
+<h2>Differences with common implementations</h2>
+
+<p>The JAX-RS implementation that comes with Mu Server is intentionally only a subset of the full spec.
+    The main way it differs from common implementations is in how it handles the construction of your
+    resource classes.</p>
+
+<p>Specifically, when creating a rest server, you pass instantiated instances of your resources to the
+    Mu Server REST builder, which means <em>Mu Server will not instantiate any of your objects</em>. This allows you
+    to create your objects in whatever way you desire, and makes it very easy to use constructor-based
+    dependency injection, as in the example above.</p>
+
+<p>See the <a href="https://github.com/3redronin/mu-server/blob/master/src/main/java/io/muserver/rest/README.md">Mu
+    Server spec implementation page</a> for full details of what is and isn't implemented.</p>
+
+<h2>Serialisation with Jackson JAX-RS</h2>
+
+<p>To support automatic JSON serialisation of response bodies and deserialisation of request bodies, you can add
+    the <a href="https://github.com/FasterXML/jackson-jaxrs-providers">Jackson JAX-RS provider</a> dependency:</p>
+
+<pre><code class="language-markup">&lt;dependency&gt;
+    &lt;groupId&gt;com.fasterxml.jackson.jaxrs&lt;/groupId&gt;
+    &lt;artifactId&gt;jackson-jaxrs-json-provider&lt;/artifactId&gt;
+    &lt;version&gt;2.13.0&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+
+<p>You can then register a body reader and/or writer on the <code>RestHandlerBuilder</code>. In the following
+    example the <code>User</code> class is automatically converted to JSON:</p>
+
+{{ source("JacksonJaxRSExample.java") | raw }}
+
+<h2 id="cors">CORS Configuration</h2>
+
+<p>If browsers are connecting to your REST API from another domain, you will need to grant access
+    to the URLs that the UI runs from. This can be achieved with the
+    {{ javadoc("io.muserver.rest.CORSConfigBuilder") | raw }} class. The following example allows
+    UIs to access the REST URL from the swagger petstore site or from any localhost URL:</p>
+
+<pre><code class="language-java">RestHandlerBuilder.restHandler(resources)
+    .withCORS(
+        CORSConfigBuilder.corsConfig()
+            .withAllowedOrigins("https://petstore.swagger.io")
+            .withAllowedOriginRegex("http(s)?://localhost:[0-9]+")
+    )</code></pre>
+
+<p>The javadoc has information on more advanced options such as allowing credentials, specifying
+    allowed headers, and settings for preflight OPTIONS requests.</p>
+
+<h2 id="documentation">Documentation</h2>
+
+<p>Mu Server has built-in support for generating <a href="https://www.openapis.org/">OpenAPI</a>
+    specifications for your REST APIs. This means a JSON file describing your API can be optionally
+    exposed on your web server and then UIs such as <a href="https://swagger.io/">Swagger</a> can
+    be used to visualise and test your API.</p>
+
+<p>While the Swagger UI is not built in, a very simple HTML documentation page can also be automatically
+    exposed.</p>
+
+<p>To expose documentation, use the documentation-related methods on the
+    {{ javadoc("io.muserver.rest.RestHandlerBuilder") | raw }} class:</p>
+
+<pre><code class="language-java">RestHandlerBuilder.restHandler(resources)
+    .withOpenApiJsonUrl("/openapi.json")
+    .withOpenApiHtmlUrl("/api.html")</code></pre>
+
+<p>You can see what those look like at the following links:</p>
+<ul>
+    <li><a href="/api.html">Simple readonly HTML Documentation</a></li>
+    <li><a href="/openapi.json">OpenAPI JSON</a></li>
+</ul>
+
+<p>If hosting a swagger UI at a different endpoint, you will need to add CORS configuration as
+    described above. To test this, copy the <a href="/openapi.json">OpenAPI JSON URL</a>
+    and paste it into the text box at the <a href="https://petstore.swagger.io/">Swagger Petstore Example</a>.</p>
+
+<p>In order to provide more detail in your documentation, you can apply the {{ javadoc("io.muserver.rest.Description") |
+    raw }}
+    annotation to your JAX RS classes, methods, and parameters. Methods can also describe return values
+    by specifying an {{ javadoc("io.muserver.rest.ApiResponse") | raw }} annotation.</p>
+
+<p>To give a general introduction to your API, you can also specify extra API Info via the
+    <code>withOpenApiDocument</code>
+    on the {{ javadoc("io.muserver.rest.RestHandlerBuilder") | raw }} and set various settings
+    by using the {{ javadoc("io.muserver.openapi.OpenAPIObjectBuilder") | raw }}'s <code>openAPIObject()</code>
+    method. The following example demonstrates some of these features:</p>
+
+{{ source("JaxRSDocumentationExample.java") | raw }}
+
+<p>This results in <a href="/jaxrsdocs/api.html">this simple HTML view</a> and <a href="/jaxrsdocs/openapi.json">this
+    OpenAPI JSON</a>.</p>
+
+<p>Note: Mu Server does not support the Swagger annotations defined in the <code>io.swagger.annotations</code> package.
+</p>
+
+<h3>Generating schema and examples of complex objects</h3>
+
+<p>OpenAPI using JSON schema notation to describe the objects used in requests and responses.
+    These schema object are generated by MuServer using the {{ javadoc("io.muserver.openapi.SchemaObjectBuilder") | raw
+    }} class. MuServer allows you to register fixed schema objects to be used for your custom classes, or to
+    specify them at runtime.</p>
+
+<p>In the following example, a method returns a <code>Product</code> object which is converted
+    to JSON using a custom message body writer. The <code>ProductResource</code> class describes
+    the schema of the returned data along with an example generated at runtime:</p>
+
+{{ source("JaxRSSchemaExample.java") | raw }}
+
+<p>
+    To register methods that can customize a schema and it's example, you can call the
+    <code>RestHandlerBuilder.addSchemaObjectCustomizer(SchemaObjectCustomizer)</code> method.
+    However, as in the example above, if the resource class implements {{
+    javadoc("io.muserver.rest.SchemaObjectCustomizer") | raw }}
+    then it will be automatically registered.
+</p>
+
+<p>An alternative to runtime customization is to map schema objects to Java classes. For example,
+    the example above could have specified the schema for a product as follows:</p>
+
+<pre class="language-java"><code class="language-java">restHandlerBuilder(new ProductResource())
+    .addCustomSchema(Product.class, SchemaObjectBuilder.schemaObjectFrom(Product.class)
+         .withProperties(props)
+         .withExample(example)
+         .build())</code></pre>
+
+<p>When viewed in a UI such as swagger, the schema and example can be shown. For example:</p>
+<img src="/samples/product-example.png" alt="Screenshot of Swagger showing Product information" width="470"
+     height="334">
+
+<h2>Filters and Security</h2>
+
+<p>Request and response filters can be added with the <code>addRequestFilter</code> and <code>addResponseFilter</code>
+    methods on the {{ javadoc("io.muserver.rest.RestHandlerBuilder") | raw }}.</p>
+
+<p>One use-case for this is for security. Mu-Server comes with a simple BasicAuth filter which
+    can be controlled by implementing Authenticator and Authorizer interfaces. See
+    <a href="https://github.com/3redronin/mu-server-docs/blob/master/src/main/java/io/muserver/docs/samples/JaxRSBasicAuth.java">JaxRSBasicAuth.java</a>
+    for a full example.</p>
+
+<p>You can access a {{ javadoc("javax.ws.rs.container.ResourceInfo") | raw }} or the current
+    {{ javadoc("io.muserver.MuRequest") | raw }} by looking up the properties on the context:</p>
+
+<pre class="language-java"><code class="language-java">@Override
+public void filter(ContainerRequestContext requestContext) {
+    ResourceInfo resourceInfo = (ResourceInfo)
+            requestContext.getProperty(MuRuntimeDelegate.RESOURCE_INFO_PROPERTY);
+    MuRequest muRequest = (MuRequest)
+            requestContext.getProperty(MuRuntimeDelegate.MU_REQUEST_PROPERTY);
+    // do stuff
+}</code></pre>
+
+<h2>Reader and Writer interceptors</h2>
+
+<p>Use the <code>addReaderInterceptor</code> and <code>addWriterInterceptor</code> in order to intercept
+request and response bodies respectively. To get <code>ResourceInfo</code> or the <code>MuRequest</code>
+you can access the properties on the interceptor context in the same way as for filters described above.</p>
+
+<h2>Custom readers, writers, and exception handlers</h2>
+
+<p>The following methods on the {{ javadoc("io.muserver.rest.RestHandlerBuilder") | raw }} can
+    be used:</p>
+<ul>
+    <li><code>addCustomReader</code> which registers an object that can deserialise request bodies into custom classes.
+    </li>
+    <li><code>addCustomWriter</code> which registers an object that can write custom classes to responses.</li>
+    <li><code>addCustomParamConverter</code> which registers a class that convert method parameter string values to and
+        from a custom class.
+    </li>
+    <li><code>addExceptionMapper</code> which registers a mapping from an exception type to a specific response.</li>
+</ul>
+<p>See the {{ javadoc("io.muserver.rest.RestHandlerBuilder") | raw }} javadoc for more details.</p>
+
+<h2>File uploads on Form parameters</h2>
+
+<p>For <code>multipart/form-data</code> requests, the <code>@FormParam</code> method parameter annotation can be used
+    with {{ javadoc("io.muserver.UploadedFile") | raw }} objects, including <code>List&lt;UploadedFile&gt;</code> for
+    multiple uploads of the same name.</p>
+
+{% endblock %}

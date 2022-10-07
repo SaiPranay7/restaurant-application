@@ -1,0 +1,26 @@
+{% extends "template.html" %}
+{% block main %}
+
+<p>The {{ javadoc("io.muserver.Mutils") | raw }}
+class contains various useful utilities. Examples below:</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Function</th>
+        <th>Input</th>
+        <th>Output</th>
+    </tr>
+    </thead>
+    <tbody>
+{% for example in examples %}
+<tr>
+    <td>{{ example.area }}</td>
+    <td><code>{{ example.input }}</code></td>
+    <td>{{ example.output }}</td>
+</tr>
+{% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

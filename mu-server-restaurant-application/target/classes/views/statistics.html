@@ -1,0 +1,63 @@
+{% extends "template.html" %}
+{% block main %}
+
+<p>The {{ javadoc("io.muserver.MuStats") | raw }} class can give you various statistics about your server.</p>
+
+{{ source("StatisticsExample.java") | raw }}
+
+<p>Here are some stats for this website:</p>
+
+<table>
+    <tr>
+        <th>Active connections</th>
+        <td style="text-align:right">{{activeConnections}}</td>
+    </tr>
+    <tr>
+        <th>Completed connections</th>
+        <td style="text-align:right">{{completedConnections}}</td>
+    </tr>
+    <tr>
+        <th>Active requests</th>
+        <td style="text-align:right">{{activeRequests}}</td>
+    </tr>
+    <tr>
+        <th>Completed requests</th>
+        <td style="text-align:right">{{completedRequests}}</td>
+    </tr>
+    <tr>
+        <th>Bytes uploaded</th>
+        <td style="text-align:right">{{bytesUploaded}}</td>
+    </tr>
+    <tr>
+        <th>Bytes downloaded</th>
+        <td style="text-align:right">{{bytesDownloaded}}</td>
+    </tr>
+    <tr>
+        <th>Invalid requests</th>
+        <td style="text-align:right">{{invalidHttpRequests}}</td>
+    </tr>
+    <tr>
+        <th>SSL connection errors</th>
+        <td style="text-align:right">{{failedToConnect}}</td>
+    </tr>
+    <tr>
+        <th>Rejected requests</th>
+        <td style="text-align:right">{{rejectedDueToOverload}}</td>
+    </tr>
+</table>
+
+<h2 id="connectionInfo">Connection info</h2>
+
+<p>You can access all the existing connections to your server by calling <code>server.activeConnections()</code>
+    which returns a set of {{ javadoc("io.muserver.HttpConnection") | raw }} objects. This allows you to see
+    which HTTP protocols are in use, which TLS versions are used, the ciphers used, etc. This can be useful
+    when analysing which TLS settings will not impact your users.</p>
+
+<p>The {{ javadoc("io.muserver.MuRequest") | raw }} object also gives you access to the current connection via
+    the <code>connection()</code> method. For example, you are accessing this web page over
+    <strong>{{ connection.protocol }}</strong> using <strong>{{ connection.httpsProtocol }}</strong> with the
+    <strong>{{ connection.cipher }}</strong> cipher. This connection, started at <strong>{{ connection.startTime }}</strong>
+    has served <strong>{{ connection.completedRequests }}</strong> requests.
+</p>
+
+{% endblock %}
